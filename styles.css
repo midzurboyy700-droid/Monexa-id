@@ -1,0 +1,187 @@
+/* =========================================================================
+   SAKUKU — Personal Expense Tracker
+   File: styles.css
+   CSS kustom aplikasi (digunakan bersama Tailwind CDN di index.html).
+   Mode tema dikendalikan oleh class 'dark' pada elemen <html>.
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   BASE & VARIABEL TEMA
+   ------------------------------------------------------------------------- */
+:root {
+  --text-strong: #0f172a;   /* teks utama (light) */
+  --text-muted: #64748b;    /* teks sekunder (light) */
+  --grid-line: rgba(148, 163, 184, 0.14); /* garis grid chart */
+}
+.dark {
+  --text-strong: #f1f5f9;   /* teks utama (dark) */
+  --text-muted: #94a3b8;    /* teks sekunder (dark) */
+  --grid-line: rgba(148, 163, 184, 0.14);
+}
+
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  background-color: #f1f5f9;   /* slate-100 */
+  color: #1e293b;              /* slate-800 */
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.dark body {
+  background-color: #020617;   /* slate-950 */
+  color: #e2e8f0;              /* slate-200 */
+}
+
+/* -------------------------------------------------------------------------
+   KOMPONEN: KARTU
+   ------------------------------------------------------------------------- */
+.card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;          /* slate-200 */
+  border-radius: 1rem;                /* rounded-2xl */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.dark .card {
+  background-color: #0f172a;          /* slate-900 */
+  border-color: #1e293b;              /* slate-800 */
+}
+.card:hover {
+  border-color: #cbd5e1;              /* slate-300 */
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.08);
+}
+.dark .card:hover {
+  border-color: #334155;              /* slate-700 */
+}
+
+/* -------------------------------------------------------------------------
+   KOMPONEN: LABEL & INPUT
+   ------------------------------------------------------------------------- */
+.label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;                      /* slate-500 */
+  margin-bottom: 0.375rem;
+}
+.dark .label { color: #94a3b8; }       /* slate-400 */
+
+.input {
+  width: 100%;
+  border-radius: 0.75rem;              /* rounded-xl */
+  border: 1px solid #cbd5e1;           /* slate-300 */
+  background-color: #ffffff;
+  color: #1e293b;                      /* slate-800 */
+  padding: 0.625rem 0.875rem;          /* py-2.5 px-3.5 */
+  font-size: 0.875rem;                 /* text-sm */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.input::placeholder { color: #94a3b8; } /* slate-400 */
+.input:focus {
+  outline: none;
+  border-color: #10b981;               /* emerald-500 */
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4); /* focus ring emerald */
+}
+.dark .input {
+  background-color: #1e293b;           /* slate-800 */
+  border-color: #334155;               /* slate-700 */
+  color: #f1f5f9;                      /* slate-100 */
+}
+.dark .input::placeholder { color: #64748b; } /* slate-500 */
+
+/* -------------------------------------------------------------------------
+   KOMPONEN: TOMBOL
+   ------------------------------------------------------------------------- */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(to right, #10b981, #14b8a6); /* emerald → teal */
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.2s ease,
+              background 0.2s ease, filter 0.2s ease;
+  cursor: pointer;
+}
+.btn-primary:hover {
+  background: linear-gradient(to right, #059669, #0d9488);
+  box-shadow: 0 8px 12px -2px rgba(16, 185, 129, 0.3);
+}
+.btn-primary:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.6);
+}
+.btn-primary:active { transform: scale(0.98); }
+
+/* Tombol ikon kecil (aksi baris riwayat / header) */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  color: #94a3b8;                      /* slate-400 */
+  transition: color 0.2s ease, background-color 0.2s ease;
+  cursor: pointer;
+}
+.btn-icon:hover {
+  color: #f43f5e;                      /* rose-500 */
+  background-color: rgba(244, 63, 94, 0.1);
+}
+
+/* -------------------------------------------------------------------------
+   KOMPONEN: BADGE KATEGORI
+   ------------------------------------------------------------------------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* -------------------------------------------------------------------------
+   SCROLLBAR
+   ------------------------------------------------------------------------- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.6); }
+
+/* -------------------------------------------------------------------------
+   TOAST (NOTIFIKASI)
+   ------------------------------------------------------------------------- */
+.toast {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #ffffff;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  transform: translateY(1rem);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.toast.success { background-color: #059669; } /* emerald-600 */
+.toast.error   { background-color: #e11d48; } /* rose-600 */
