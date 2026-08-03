@@ -25,7 +25,7 @@
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>> TEMPAT TEMPEL KONFIGURASI <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+export const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCZ1ZYd49fMaSHovLIvS_wwtJjF48jGXis",
   authDomain: "iksan-tracking-financial.firebaseapp.com",
   databaseURL: "https://iksan-tracking-financial-default-rtdb.asia-southeast1.firebasedatabase.app",
