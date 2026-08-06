@@ -1,17 +1,18 @@
 /* =========================================================================
-   SAKUKU — Personal Expense Tracker
+   MONEXA TRACKER — Personal Expense Tracker
    File: script.js (ES Module)
-   -------------------------------------------------------------------------
-   Semua data transaksi disimpan & dibaca dari Firebase Realtime Database
-   (lihat firebase.js). Tidak ada lagi penyimpanan data di localStorage.
-   localStorage hanya dipakai untuk: tema (dark mode) & bulan terpilih
-   (preferensi tampilan).
    ========================================================================= */
 import {
-  FIREBASE_CONFIG, isConfigured, initFirebase,
-  onAuthChanged, signInWithGoogle, signOutUser,
-  subscribeTransactions, addTransactionToDb, updateTransactionInDb,
-  deleteTransactionFromDb, watchConnection
+  isConfigured,
+  initFirebase,
+  onAuthChanged,
+  signInWithGoogle,
+  signOutUser,
+  subscribeTransactions,
+  addTransactionToDb,
+  updateTransactionInDb,
+  deleteTransactionFromDb,
+  watchConnection
 } from './firebase.js';
 
 /* =====================================================================
@@ -19,7 +20,7 @@ import {
    ===================================================================== */
 const THEME_KEY = 'sakuku_theme_v1';        // kunci localStorage utk tema
 const MONTH_KEY = 'sakuku_month_v1';        // kunci localStorage utk bulan terpilih
-const LEGACY_KEY = 'sakuku_transactions_v1'; // kunci localStorage data lama (untuk migrasi sekali)
+const LEGACY_KEY = 'sakuku_transactions_v1'; // kunci localStorage data lama
 
 // Daftar kategori berdasarkan tipe transaksi
 const CAT_EXPENSE = [
@@ -28,6 +29,44 @@ const CAT_EXPENSE = [
 ];
 const CAT_INCOME = ['Awal Bulan', 'Tengah Bulan', 'Event/Kerja', 'Investasi', 'Lain-lain'];
 
+// Map Icon Emoji untuk Kategori
+/* =====================================================================
+   HELPER SVG ICONS PER KATEGORI (STYLE MONEXA LOGO)
+   ===================================================================== */
+// Gradien & Soft Glow Shadow bergaya logo Monexa
+const CAT_GRADIENTS = {
+  'Makanan & Minuman': 'from-emerald-500 to-teal-600 shadow-emerald-500/25',
+  'Transportasi':      'from-sky-500 to-blue-600 shadow-sky-500/25',
+  'Belanja':           'from-purple-500 to-indigo-600 shadow-purple-500/25',
+  'Tagihan/Utilitas':  'from-amber-500 to-orange-600 shadow-amber-500/25',
+  'Hiburan':           'from-pink-500 to-rose-600 shadow-pink-500/25',
+  'Tabungan/Investasi':'from-teal-500 to-emerald-600 shadow-teal-500/25',
+  'Awal Bulan':        'from-emerald-500 to-teal-600 shadow-emerald-500/25',
+  'Tengah Bulan':      'from-sky-500 to-cyan-600 shadow-sky-500/25',
+  'Event/Kerja':       'from-violet-500 to-purple-600 shadow-violet-500/25',
+  'Investasi':         'from-teal-500 to-emerald-600 shadow-teal-500/25',
+  'Lain-lain':         'from-slate-500 to-slate-600 shadow-slate-500/25'
+};
+
+function getCategoryIconSvg(category) {
+  const icons = {
+    'Makanan & Minuman': `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>`,
+    'Transportasi':      `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>`,
+    'Belanja':           `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>`,
+    'Tagihan/Utilitas':  `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>`,
+    'Hiburan':           `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2H5z" /></svg>`,
+    'Tabungan/Investasi':`<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>`,
+    'Awal Bulan':        `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+    'Tengah Bulan':      `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>`,
+    'Event/Kerja':       `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>`,
+    'Investasi':         `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5a2 2 0 10-2 2h2zm0 13C10.832 19.477 9.246 19 7.5 19S4.168 19.477 3 20.253V7.5C4.168 6.723 5.754 6.25 7.5 6.25s3.332.473 4.5 1.25" /></svg>`,
+    'Lain-lain':         `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>`
+  };
+
+  const defaultIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>`;
+
+  return icons[category] || defaultIcon;
+}
 // Warna tiap kategori (dipakai di badge & grafik donut)
 const CAT_COLORS = {
   'Makanan & Minuman': '#10b981',
@@ -43,25 +82,25 @@ const CAT_COLORS = {
   'Lain-lain':         '#64748b'
 };
 
-// Nama bulan Bahasa Indonesia (untuk dropdown & judul)
+// Nama bulan Bahasa Indonesia
 const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni',
                    'Juli','Agustus','September','Oktober','November','Desember'];
 
 // State aplikasi
-let transactions = [];        // data transaksi akun yang sedang login (dari Firebase)
-let selectedMonth = '';       // format 'YYYY-MM' (preferensi tampilan)
+let transactions = [];        // data transaksi (dari Firebase)
+let selectedMonth = '';       // format 'YYYY-MM'
 let txType = 'expense';       // tipe transaksi pada form
 let filterCategory = 'all';   // filter kategori riwayat
 let filterKeyword = '';       // kata kunci pencarian riwayat
-let editingId = null;         // autoId transaksi yang sedang diedit (null = mode baru)
+let editingId = null;         // autoId transaksi yang sedang diedit
 
-let donutChart = null;        // objek grafik donut
-let barChart = null;          // objek grafik bar
+let donutChart = null;        
+let barChart = null;          
 
-let fbUser = null;            // objek user yang sedang login (dari Firebase Auth)
-let fbOnline = false;         // status koneksi ke server Firebase
-let unsubTx = null;           // fungsi un-subscribe listener data transaksi
-let unsubConn = null;         // fungsi un-subscribe listener koneksi
+let fbUser = null;            
+let fbOnline = false;         
+let unsubTx = null;           
+let unsubConn = null;         
 
 /* =====================================================================
    UTILITAS
@@ -73,14 +112,12 @@ function todayISO() {
          String(d.getDate()).padStart(2, '0');
 }
 
-// Format angka Rupiah: 1250000 -> Rp 1.250.000
 function formatRupiah(n) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency', currency: 'IDR', maximumFractionDigits: 0
   }).format(Math.round(n));
 }
 
-// Format singkat untuk sumbu Y chart: 1500000 -> "1,5 jt"
 function rupiahShort(n) {
   if (n >= 1e6) return (n / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' jt';
   if (n >= 1e3) return (n / 1e3).toLocaleString('id-ID', { maximumFractionDigits: 0 }) + ' rb';
@@ -89,20 +126,17 @@ function rupiahShort(n) {
 
 function ymOf(iso) { return iso.slice(0, 7); }
 
-// Format label bulan Indonesia: '2026-08' -> 'Agustus 2026'
 function monthLabel(ym) {
   const [y, m] = ym.split('-');
   return MONTHS_ID[parseInt(m, 10) - 1] + ' ' + y;
 }
 
-// Escape HTML agar input pengguna aman saat dirender
 function esc(s) {
   return String(s).replace(/[&<>"']/g, m => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[m]));
 }
 
-// Warna teks menyesuaikan tema (untuk Chart.js)
 function chartTextColor() {
   return document.documentElement.classList.contains('dark') ? '#94a3b8' : '#64748b';
 }
@@ -113,15 +147,12 @@ function chartTextStrong() {
 /* =====================================================================
    FIREBASE: AUTH & SINKRONISASI DATA
    ===================================================================== */
-// Dipanggil oleh onAuthStateChanged setiap kali status login berubah.
 function handleAuthChange(user) {
   fbUser = user;
   renderAuthUI();
 
-  // Lepas listener data akun lama
   if (unsubTx) { unsubTx(); unsubTx = null; }
 
-  // Tampilkan data akun baru (atau kosong jika keluar)
   transactions = [];
   renderAll();
   cancelEdit();
@@ -135,7 +166,6 @@ function handleAuthChange(user) {
   }
 }
 
-// Berlangganan data transaksi & status koneksi (jika akun login)
 function subscribeIfNeeded() {
   if (!fbUser) return;
   if (!unsubTx) {
@@ -146,19 +176,15 @@ function subscribeIfNeeded() {
   }
 }
 
-// Dipanggil setiap kali data cloud akun berubah (realtime, termasuk perangkat lain)
 function handleRemoteData(val) {
   if (val === null) {
-    // Node akun masih kosong -> coba migrasi data lama dari localStorage
-    // (aplikasi versi sebelumnya), lalu bersihkan.
     migrateLegacyData();
     transactions = [];
     renderAll();
     return;
   }
-  // Firebase jadi sumber kebenaran
   transactions = Object.entries(val).map(([key, t]) => ({
-    id: key,                              // autoId dari Firebase
+    id: key,
     type: t.type,
     date: t.date,
     amount: t.amount,
@@ -173,7 +199,6 @@ function handleConnection(online) {
   setStatus(fbOnline ? (fbUser ? 'connected' : 'signedout') : 'connecting');
 }
 
-// Migrasi satu kali: unggah data lama (localStorage) ke cloud akun, lalu hapus kunci
 function migrateLegacyData() {
   const legacy = localStorage.getItem(LEGACY_KEY);
   if (!legacy) return;
@@ -193,21 +218,18 @@ function migrateLegacyData() {
     .catch(err => toast('Migrasi data gagal: ' + err.message, 'error'));
 }
 
-// Hubungkan ulang (dipanggil dari tombol di modal pengaturan)
 function connectFirebase() {
   if (!isConfigured()) return setStatus('offline');
   subscribeIfNeeded();
   setStatus(fbOnline ? (fbUser ? 'connected' : 'signedout') : 'connecting');
 }
 
-// Putuskan langganan data cloud (konfigurasi & login tetap tersimpan)
 function disconnectFirebase() {
   if (unsubTx) { unsubTx(); unsubTx = null; }
   if (unsubConn) { unsubConn(); unsubConn = null; }
   setStatus('offline');
 }
 
-// Login dengan akun Google (membutuhkan HTTPS atau localhost)
 function signInGoogle() {
   if (!isConfigured()) return toast('Tempel konfigurasi Firebase di firebase.js terlebih dahulu.', 'error');
   try { initFirebase(); } catch (e) { return toast(e.message, 'error'); }
@@ -215,13 +237,12 @@ function signInGoogle() {
     .then(() => toast('Berhasil masuk.'))
     .catch(err => {
       const hint = (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user')
-        ? 'Popup login diblokir/ditutup. Pastikan halaman dibuka via HTTPS atau localhost (bukan file://).'
+        ? 'Popup login diblokir/ditutup. Pastikan halaman dibuka via HTTPS atau localhost.'
         : err.message;
       toast('Gagal masuk: ' + hint, 'error');
     });
 }
 
-// Keluar dari akun (data di cloud tetap tersimpan)
 function signOutGoogle() {
   signOutUser()
     .then(() => toast('Berhasil keluar.'))
@@ -304,7 +325,6 @@ function expenseByWeek(list, ym) {
 function renderCharts() {
   const list = transactions.filter(t => ymOf(t.date) === selectedMonth);
 
-  // ---- Donut: pengeluaran per kategori ----
   const byCat = expenseByCategory(list);
   const donutLabels = Object.keys(byCat);
   const donutData = donutLabels.map(k => byCat[k]);
@@ -342,7 +362,6 @@ function renderCharts() {
   donutChart.options.plugins.legend.labels.color = chartTextColor();
   donutChart.update();
 
-  // ---- Bar: pengeluaran per minggu ----
   const weekly = expenseByWeek(list, selectedMonth);
   document.getElementById('bar-empty').classList.toggle('hidden', weekly.totals.some(v => v > 0));
 
@@ -377,11 +396,41 @@ function renderCharts() {
 }
 
 /* =====================================================================
-   RENDER: RIWAYAT TRANSAKSI
+   FILTER CHIPS (AMUNISI SAFE CHECK)
+   ===================================================================== */
+function renderFilterOptions() {
+  const container = document.getElementById('filter-chips-container');
+  // Proteksi: Jika elemen belum ada di HTML, lewati tanpa membuat script crash
+  if (!container) return;
+
+  const cats = [...new Set(transactions.map(t => t.category))];
+  const allCats = ['all', ...cats];
+
+  container.innerHTML = allCats.map(cat => {
+    const isAll = cat === 'all';
+    const label = isAll ? 'Semua' : cat;
+    const isActive = filterCategory === cat;
+    const iconSvg = isAll 
+      ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>`
+      : getCategoryIconSvg(cat);
+
+    return `<button type="button" 
+      class="chip-filter ${isActive ? 'active' : ''}" 
+      onclick="setFilterCategory('${esc(cat)}')">
+      <span class="shrink-0">${iconSvg}</span>
+      <span>${esc(label)}</span>
+    </button>`;
+  }).join('');
+}
+
+/* =====================================================================
+   RENDER: RIWAYAT TRANSAKSI (MODERN TIMELINE REDESIGN)
    ===================================================================== */
 function renderHistory() {
-  const count = document.getElementById('history-count');
+  const timelineEl = document.getElementById('history-timeline');
+  if (!timelineEl) return;
 
+  // 1. Filter transaksi
   let list = transactions
     .filter(t => ymOf(t.date) === selectedMonth)
     .filter(t => filterCategory === 'all' || t.category === filterCategory);
@@ -393,63 +442,155 @@ function renderHistory() {
     );
   }
 
-  list.sort((a, b) => (a.date === b.date ? (a.id < b.id ? 1 : -1) : (a.date < b.date ? 1 : -1)));
-  count.textContent = list.length;
+  // Update statistik mini
+  const totalCount = list.length;
+  const incomeCount = list.filter(t => t.type === 'income').length;
+  const expenseCount = list.filter(t => t.type === 'expense').length;
 
-  const tbody = document.getElementById('history-body');
+  const elTotal = document.getElementById('stat-total-count');
+  const elInc = document.getElementById('stat-income-count');
+  const elExp = document.getElementById('stat-expense-count');
 
+  if (elTotal) elTotal.textContent = totalCount;
+  if (elInc) elInc.textContent = incomeCount;
+  if (elExp) elExp.textContent = expenseCount;
+
+  // Render jika kosong
   if (!list.length) {
-    // Pesan berbeda saat belum login vs filter tidak cocok
     const msg = !fbUser
-      ? 'Masuk terlebih dahulu (klik ikon gerigi di kanan atas) untuk melihat data Anda.'
-      : 'Tidak ada transaksi yang cocok. Coba ubah filter, atau tambahkan transaksi baru.';
-    tbody.innerHTML =
-      '<tr><td colspan="5" class="px-4 py-10 text-center text-sm text-slate-400">' + msg + '</td></tr>';
+      ? 'Masuk terlebih dahulu (klik ikon gerigi) untuk melihat data Anda.'
+      : 'Belum ada transaksi pada periode atau filter ini.';
+    
+    timelineEl.innerHTML = `
+      <div class="py-12 text-center card bg-slate-50/50 dark:bg-slate-900/30 border-dashed">
+        <div class="text-3xl mb-2">📥</div>
+        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">${msg}</p>
+      </div>`;
     return;
   }
 
-  tbody.innerHTML = list.map(t => {
-    const color = CAT_COLORS[t.category] || '#64748b';
-    const isIncome = t.type === 'income';
-    const dateTxt = new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', {
-      weekday: 'short', day: 'numeric', month: 'short'
+  // 2. Kelompokkan transaksi berdasarkan Tanggal
+  const grouped = {};
+  list.forEach(t => {
+    if (!grouped[t.date]) grouped[t.date] = [];
+    grouped[t.date].push(t);
+  });
+
+  const sortedDates = Object.keys(grouped).sort((a, b) => (a < b ? 1 : -1));
+
+  // 3. Render HTML Group Timeline
+  timelineEl.innerHTML = sortedDates.map(dateStr => {
+    const dayItems = grouped[dateStr];
+    dayItems.sort((a, b) => (a.id < b.id ? 1 : -1));
+
+    const dayIncome = dayItems.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const dayExpense = dayItems.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const formattedDate = dateObj.toLocaleDateString('id-ID', {
+      weekday: 'long', day: 'numeric', month: 'long'
     });
 
-    return '<tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">' +
+// Render Kartu Per Transaksi pada Hari Tersebut (New Modern Card Layout)
+    // Render Kartu Per Transaksi pada Hari Tersebut
+    const cardsHtml = dayItems.map(t => {
+      const isIncome = t.type === 'income';
+      const iconSvg = getCategoryIconSvg(t.category);
+      const gradientClass = CAT_GRADIENTS[t.category] || 'from-slate-500 to-slate-600 shadow-slate-500/25';
 
-      // Tanggal
-      '<td class="px-5 sm:px-4 py-3 whitespace-nowrap text-slate-500 dark:text-slate-400">' + dateTxt + '</td>' +
+      return `
+        <div class="tx-card animate-tx-card">
+          
+          <!-- SISI KIRI: Icon + Nama Kategori + Catatan -->
+          <div class="tx-card-body">
+            <div class="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center text-white shadow-md">
+              ${iconSvg}
+            </div>
 
-      // Kategori (badge berwarna) + ikon tipe
-      '<td class="px-4 py-3"><span class="badge" style="background:' + color + '1a;color:' + color + '">' +
-      '<span class="h-1.5 w-1.5 rounded-full" style="background:' + color + '"></span>' +
-      esc(t.category) + '</span></td>' +
+            <div class="min-w-0 flex-1 text-left">
+              <h4 class="text-sm font-bold text-slate-900 dark:text-slate-100 leading-snug">
+                ${esc(t.category)}
+              </h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed tx-note-clamp">
+                ${t.note ? esc(t.note) : '<span class="italic opacity-50">Tanpa catatan</span>'}
+              </p>
+            </div>
+          </div>
 
-      // Catatan
-      '<td class="px-4 py-3 max-w-[200px] truncate text-slate-600 dark:text-slate-300">' +
-      (t.note ? esc(t.note) : '<span class="text-slate-400">—</span>') + '</td>' +
+          <!-- SISI KANAN: Nominal Transaksi & Menu ⋮ (Rata Kanan Presisi) -->
+          <div class="tx-card-footer">
+            <div class="text-right">
+              <span class="text-base sm:text-lg font-extrabold tracking-tight ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+                ${isIncome ? '+' : '-'} ${formatRupiah(t.amount)}
+              </span>
+            </div>
 
-      // Nominal
-      '<td class="px-4 py-3 text-right font-semibold whitespace-nowrap ' +
-      (isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400') + '">' +
-      (isIncome ? '+ ' : '− ') + formatRupiah(t.amount) + '</td>' +
+            <!-- Tombol Menu ⋮ di Ujung Kanan -->
+            <div class="relative shrink-0 tx-menu-container">
+              <button type="button" 
+                      class="btn-icon !p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition" 
+                      title="Opsi Lainnya" 
+                      aria-label="Opsi Lainnya"
+                      onclick="toggleTxMenu(event, '${esc(t.id)}')">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
 
-      // Aksi: edit + hapus
-      '<td class="px-4 py-3 text-center whitespace-nowrap">' +
-        '<button class="btn-icon" title="Edit transaksi" aria-label="Edit" onclick="editTransaction(\'' + esc(t.id) + '\')">' +
-        '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">' +
-        '<path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>' +
-        '</button>' +
-        '<button class="btn-icon" title="Hapus transaksi" aria-label="Hapus" onclick="deleteTransaction(\'' + esc(t.id) + '\')">' +
-        '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">' +
-        '<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>' +
-        '</button>' +
-      '</td></tr>';
+              <!-- Popover Menu Dropdown -->
+              <div id="tx-dropdown-${esc(t.id)}" class="tx-menu-dropdown">
+                <button type="button" 
+                        class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 flex items-center gap-2 transition"
+                        onclick="editTransaction('${esc(t.id)}'); closeAllTxMenus();">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit
+                </button>
+                <button type="button" 
+                        class="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2 transition"
+                        onclick="deleteTransaction('${esc(t.id)}'); closeAllTxMenus();">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      `;
+    }).join('');
+    
+    return `
+      <div class="space-y-3">
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-2">
+            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-wide uppercase">
+              ${formattedDate}
+            </h3>
+            <span class="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400">
+              ${dayItems.length} Transaksi
+            </span>
+          </div>
+          
+          <div class="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
+            ${dayIncome > 0 ? `<span class="text-emerald-500">Masuk ${formatRupiah(dayIncome)}</span>` : ''}
+            ${dayExpense > 0 ? `<span class="text-rose-500">Keluar ${formatRupiah(dayExpense)}</span>` : ''}
+          </div>
+        </div>
+
+        <div class="space-y-2.5">
+          ${cardsHtml}
+        </div>
+      </div>
+    `;
   }).join('');
 }
 
 /* =====================================================================
-   AKSI: TAMBAH, EDIT, HAPUS TRANSAKSI (semua via Firebase)
+   AKSI: TAMBAH, EDIT, HAPUS TRANSAKSI
    ===================================================================== */
 function handleFormSubmit(e) {
   e.preventDefault();
@@ -473,7 +614,6 @@ function handleFormSubmit(e) {
   };
 
   if (editingId) {
-    // --- EDIT: perbarui transaksi yang ada ---
     updateTransactionInDb(fbUser.uid, editingId, payload)
       .then(() => {
         resetForm();
@@ -481,11 +621,9 @@ function handleFormSubmit(e) {
       })
       .catch(err => toast('Gagal memperbarui: ' + err.message, 'error'));
   } else {
-    // --- TAMBAH: transaksi baru (autoId dibuat oleh Firebase) ---
     addTransactionToDb(fbUser.uid, payload)
       .then(() => {
         resetForm();
-        // Pindah ke bulan transaksi baru agar langsung terlihat
         selectedMonth = ymOf(date);
         localStorage.setItem(MONTH_KEY, selectedMonth);
         toast((txType === 'income' ? 'Pemasukan' : 'Pengeluaran') + ' berhasil dicatat.');
@@ -502,7 +640,6 @@ function deleteTransaction(id) {
     .catch(err => toast('Gagal menghapus: ' + err.message, 'error'));
 }
 
-// Isi form dengan data transaksi untuk diedit
 function editTransaction(id) {
   const t = transactions.find(x => x.id === id);
   if (!t) return;
@@ -511,7 +648,7 @@ function editTransaction(id) {
   document.getElementById('tx-date').value = t.date;
   document.getElementById('tx-amount').value = t.amount;
   document.getElementById('tx-note').value = t.note || '';
-  document.getElementById('tx-category').value = t.category; // setelah setActiveType
+  document.getElementById('tx-category').value = t.category;
 
   editingId = id;
   document.getElementById('submit-label').textContent = 'Update Transaksi';
@@ -519,7 +656,6 @@ function editTransaction(id) {
   document.getElementById('tx-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-// Kembalikan form ke mode "tambah baru"
 function resetForm() {
   editingId = null;
   document.getElementById('tx-amount').value = '';
@@ -532,16 +668,6 @@ function resetForm() {
 function cancelEdit() {
   resetForm();
   toast('Edit dibatalkan.', 'error');
-}
-
-/* =====================================================================
-   FILTER RIWAYAT
-   ===================================================================== */
-function renderFilterOptions() {
-  const cats = [...new Set(transactions.map(t => t.category))];
-  const sel = document.getElementById('filter-category');
-  sel.innerHTML = '<option value="all">Semua Kategori</option>' +
-    cats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
 }
 
 /* =====================================================================
@@ -572,7 +698,7 @@ function renderCategoryOptions() {
 }
 
 /* =====================================================================
-   TEMA (DARK / LIGHT) — localStorage dipakai hanya di sini (preferensi)
+   TEMA (DARK / LIGHT)
    ===================================================================== */
 function applyTheme(theme) {
   const dark = theme === 'dark';
@@ -643,8 +769,10 @@ function updateLoginBanner() {
    MODAL PENGATURAN
    ===================================================================== */
 function openSettings() {
-  document.getElementById('fb-config').value = JSON.stringify(FIREBASE_CONFIG, null, 2);
-  renderAuthUI();
+  const configTextarea = document.getElementById('fb-config');
+  if (configTextarea) {
+    configTextarea.value = "Konfigurasi sudah tersimpan di firebase.js";
+  }
   document.getElementById('settings-modal').classList.remove('hidden');
 }
 
@@ -652,7 +780,6 @@ function closeSettings() {
   document.getElementById('settings-modal').classList.add('hidden');
 }
 
-// Tombol "Hubungkan" di modal — konfigurasi dibaca dari firebase.js
 function saveFirebaseConfig() {
   closeSettings();
   connectFirebase();
@@ -660,7 +787,6 @@ function saveFirebaseConfig() {
   toast(isConfigured() ? 'Terhubung ke cloud.' : 'Konfigurasi belum diisi di firebase.js.', isConfigured() ? 'success' : 'error');
 }
 
-// Tombol "Migrasi Data Lama" — unggah data localStorage versi lama ke akun
 function uploadLocalToCloud() {
   const legacy = localStorage.getItem(LEGACY_KEY);
   if (!fbUser) return toast('Masuk terlebih dahulu.', 'error');
@@ -681,7 +807,6 @@ function uploadLocalToCloud() {
     .catch(err => toast('Gagal mengunggah: ' + err.message, 'error'));
 }
 
-// Tampilkan info akun / tombol login di modal pengaturan
 function renderAuthUI() {
   const box = document.getElementById('auth-box');
   if (!box) return;
@@ -727,6 +852,7 @@ function renderAll() {
   renderMonthSelector();
   renderSummary();
   renderCharts();
+  renderFilterOptions();
   renderHistory();
 }
 
@@ -734,11 +860,9 @@ function renderAll() {
    INISIALISASI
    ===================================================================== */
 function init() {
-  // 1. Preferensi tampilan (tema & bulan terpilih) dari localStorage
   applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
   selectedMonth = localStorage.getItem(MONTH_KEY) || ymOf(todayISO());
 
-  // 2. Siapkan UI
   renderMonthSelector();
   renderFilterOptions();
   renderCategoryOptions();
@@ -750,7 +874,6 @@ function init() {
   updateLoginBanner();
   setStatus(isConfigured() ? (fbUser ? 'connected' : 'signedout') : 'offline');
 
-  // 3. Pasang event listener
   document.getElementById('month-selector').addEventListener('change', e => {
     selectedMonth = e.target.value;
     localStorage.setItem(MONTH_KEY, selectedMonth);
@@ -764,15 +887,13 @@ function init() {
   document.getElementById('btn-income').addEventListener('click', () => setActiveType('income'));
   document.getElementById('btn-expense').addEventListener('click', () => setActiveType('expense'));
 
-  document.getElementById('filter-category').addEventListener('change', e => {
-    filterCategory = e.target.value;
-    renderHistory();
-  });
-
-  document.getElementById('filter-search').addEventListener('input', e => {
-    filterKeyword = e.target.value.trim();
-    renderHistory();
-  });
+  const searchInput = document.getElementById('filter-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', e => {
+      filterKeyword = e.target.value.trim();
+      renderHistory();
+    });
+  }
 
   document.getElementById('theme-toggle').addEventListener('click', () => {
     const dark = document.documentElement.classList.contains('dark');
@@ -783,7 +904,6 @@ function init() {
   document.getElementById('settings-backdrop').addEventListener('click', closeSettings);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSettings(); });
 
-  // 4. Firebase: init jika sudah dikonfigurasi, lalu pantau status login
   if (isConfigured()) {
     try {
       initFirebase();
@@ -795,13 +915,10 @@ function init() {
   }
 }
 
-// Jalankan saat DOM siap (module script sudah deferred, DOM pasti tersedia)
 document.addEventListener('DOMContentLoaded', init);
 
 /* =====================================================================
-   FUNGSI GLOBAL untuk event handler inline di HTML (onclick=...)
-   Karena script.js adalah ES Module (tidak global), fungsi berikut
-   diekspos ke window secara eksplisit.
+   EKSPOS FUNGSI KE WINDOW (GLOBAL EXPORT)
    ===================================================================== */
 Object.assign(window, {
   deleteTransaction,
@@ -814,4 +931,30 @@ Object.assign(window, {
   disconnectFirebase,
   signInGoogle,
   signOutGoogle
+});
+
+/* =====================================================================
+   HELPER DROPDOWN MENU "⋮" (MORE OPTIONS)
+   ===================================================================== */
+window.toggleTxMenu = function(e, id) {
+  e.stopPropagation();
+  const targetDropdown = document.getElementById(`tx-dropdown-${id}`);
+  const isAlreadyOpen = targetDropdown?.classList.contains('show');
+
+  closeAllTxMenus();
+
+  if (targetDropdown && !isAlreadyOpen) {
+    targetDropdown.classList.add('show');
+  }
+};
+
+window.closeAllTxMenus = function() {
+  document.querySelectorAll('.tx-menu-dropdown').forEach(el => {
+    el.classList.remove('show');
+  });
+};
+
+// Tutup menu dropdown jika pengguna mengklik area di luar card
+document.addEventListener('click', () => {
+  closeAllTxMenus();
 });
