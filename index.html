@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Monexa" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="icon" type="image/png" href="icons/icon-192.png" />
-
+ <!-- KODE BARU: Favicon Logo Dompet Monexa -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='28' fill='%2310b981'/><path d='M25 35a8 8 0 018-8h34a8 8 0 018 8v30a8 8 0 01-8 8H33a8 8 0 01-8-8V35zm8-2a2 2 0 00-2 2v30a2 2 0 002 2h34a2 2 0 002-2V35a2 2 0 00-2-2H33zm-4 10h42v4H29v-4zm36 10a4 4 0 100 8 4 4 0 000-8z' fill='white'/></svg>" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
   <title>Monexa Financial records - Tracking Web</title>
 
   <!-- ===================== FONT (Inter) ===================== -->
@@ -423,18 +423,16 @@
     </div>
   </div>
 
-<!-- Banner Install App (PWA) dengan Tombol Close/Silang -->
+<!-- Banner Install App (PWA) -->
   <div id="install-banner" class="hidden fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg px-4 py-3 shadow-2xl transition-all">
     <div>
       <p class="text-sm font-bold text-slate-800 dark:text-white">Install Monexa App</p>
       <p class="text-xs text-slate-500 dark:text-slate-400">Akses cepat dari layar utama.</p>
     </div>
     
-    <div class="flex items-center gap-1.5 ml-1">
+    <div class="flex items-center gap-2 ml-1">
       <button id="install-btn" class="btn-primary !py-2 !px-3.5 !text-xs">Install</button>
-      
-      <!-- Tombol Close (Silang) -->
-      <button id="close-install-btn" class="btn-icon !p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" title="Tutup" aria-label="Tutup">
+      <button type="button" onclick="dismissInstallBanner()" class="btn-icon !p-1.5 text-slate-400 hover:text-rose-500 transition" title="Tutup" aria-label="Tutup">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
@@ -445,15 +443,23 @@
   <!-- Toast notifikasi -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- ===================== JAVASCRIPT APLIKASI (ES Module — Firebase Modular v12 dimuat di firebase.js) ===================== -->
+  <!-- ===================== JAVASCRIPT APLIKASI ===================== -->
   <script type="module" src="script.js"></script>
 
-  <!-- ===================== SERVICE WORKER + INSTALL PWA ===================== -->
+  <!-- ===================== SERVICE WORKER + AUTO UPDATE PWA ===================== -->
   <script>
+    // 1. Fungsi global untuk menutup banner install PWA saat tombol silang diklik
+    window.dismissInstallBanner = function () {
+      var b = document.getElementById('install-banner');
+      if (b) b.classList.add('hidden');
+      localStorage.setItem('monexa_dismiss_install', 'true');
+    };
+
     (function () {
       var deferredPrompt = null;
 
       function showInstallBanner() {
+        if (localStorage.getItem('monexa_dismiss_install') === 'true') return;
         var b = document.getElementById('install-banner');
         if (b) b.classList.remove('hidden');
       }
@@ -463,18 +469,20 @@
         if (b) b.classList.add('hidden');
       }
 
+      // Handle event 'beforeinstallprompt' dari browser
       window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();
         deferredPrompt = e;
         showInstallBanner();
       });
 
+      // Handle klik tombol Install
       document.addEventListener('click', function (e) {
-        if (e.target && e.target.id === 'install-btn' && deferredPrompt) {
+        if (e.target && (e.target.id === 'install-btn' || e.target.closest('#install-btn')) && deferredPrompt) {
           deferredPrompt.prompt();
           deferredPrompt.userChoice.then(function () {
             deferredPrompt = null;
-            hideInstallBanner();
+            window.dismissInstallBanner();
           });
         }
       });
@@ -484,10 +492,19 @@
         hideInstallBanner();
       });
 
-      if (window.matchMedia('(display-mode: standalone)').matches) hideInstallBanner();
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        window.dismissInstallBanner();
+      }
 
+      // 2. Registrasi Service Worker & Auto-Refresh saat Versi Cache Baru Dirilis
       if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
         window.addEventListener('load', function () {
+          
+          // Refresh otomatis jika versi CACHE_VERSION di service-worker.js dinaikkan
+          navigator.serviceWorker.addEventListener('controllerchange', function () {
+            window.location.reload();
+          });
+
           navigator.serviceWorker.register('./service-worker.js')
             .then(function (reg) { console.log('Service Worker terdaftar:', reg.scope); })
             .catch(function (err) { console.error('Service Worker gagal terdaftar:', err); });
