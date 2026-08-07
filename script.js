@@ -50,7 +50,12 @@ const CAT_GRADIENTS = {
 
 function getCategoryIconSvg(category) {
   const icons = {
-    'Makanan & Minuman': `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>`,
+    'Makanan & Minuman': `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <!-- Gelas & Sedotan -->
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 8l1 11a2 2 0 002 2h3a2 2 0 002-2l1-11M5 8h10M11 8L13 3" />
+      <!-- Burger (Roti Atas, Daging, Roti Bawah) -->
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 016 0h-6zM14 16h8M15 19a1 1 0 001 1h4a1 1 0 001-1v-1h-6v1z" />
+    </svg>`,
     'Transportasi':      `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>`,
     'Belanja':           `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>`,
     'Tagihan/Utilitas':  `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>`,
@@ -396,14 +401,16 @@ function renderCharts() {
 }
 
 /* =====================================================================
-   FILTER CHIPS (AMUNISI SAFE CHECK)
+   FILTER CHIPS (PERBAIKAN FITUR FILTER KATEGORI)
    ===================================================================== */
 function renderFilterOptions() {
   const container = document.getElementById('filter-chips-container');
-  // Proteksi: Jika elemen belum ada di HTML, lewati tanpa membuat script crash
   if (!container) return;
 
-  const cats = [...new Set(transactions.map(t => t.category))];
+  // Ambil kategori unik yang tersedia dari data transaksi
+  const catsFromData = transactions.map(t => t.category);
+  const defaultCats = txType === 'income' ? CAT_INCOME : CAT_EXPENSE;
+  const cats = [...new Set([...defaultCats, ...catsFromData])];
   const allCats = ['all', ...cats];
 
   container.innerHTML = allCats.map(cat => {
@@ -414,14 +421,22 @@ function renderFilterOptions() {
       ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>`
       : getCategoryIconSvg(cat);
 
+    // Menggunakan encodeURIComponent agar string kategori dengan karakter '&' atau spasi aman
     return `<button type="button" 
       class="chip-filter ${isActive ? 'active' : ''}" 
-      onclick="setFilterCategory('${esc(cat)}')">
-      <span class="shrink-0">${iconSvg}</span>
-      <span>${esc(label)}</span>
+      onclick="setFilterCategory(decodeURIComponent('${encodeURIComponent(cat)}'))">
+      <span class="shrink-0 pointer-events-none">${iconSvg}</span>
+      <span class="pointer-events-none">${esc(label)}</span>
     </button>`;
   }).join('');
 }
+
+// Global Event Handler untuk Chip Filter
+window.setFilterCategory = function(cat) {
+  filterCategory = cat;
+  renderFilterOptions(); // Re-render status aktif pada Chip
+  renderHistory();       // Re-render riwayat transaksi terfilter
+};
 
 /* =====================================================================
    RENDER: RIWAYAT TRANSAKSI (MODERN TIMELINE REDESIGN)
@@ -491,7 +506,6 @@ function renderHistory() {
       weekday: 'long', day: 'numeric', month: 'long'
     });
 
-// Render Kartu Per Transaksi pada Hari Tersebut (New Modern Card Layout)
     // Render Kartu Per Transaksi pada Hari Tersebut
     const cardsHtml = dayItems.map(t => {
       const isIncome = t.type === 'income';
@@ -563,29 +577,45 @@ function renderHistory() {
       `;
     }).join('');
     
+// --- CONCEPT REDESIGN: COMPACT HEADER TANGGAL ---
     return `
       <div class="space-y-3">
-        <div class="flex items-center justify-between px-1">
-          <div class="flex items-center gap-2">
-            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-wide uppercase">
+        <!-- Date Group Header: Kiri Tanggal & Badge, Kanan Subtotal Harian -->
+        <div class="flex items-center justify-between gap-2 px-1 pb-1 border-b border-slate-200/60 dark:border-slate-800/60">
+          
+          <!-- Sisi Kiri: Tanggal + Jumlah Transaksi -->
+          <div class="flex items-center gap-2 min-w-0">
+            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-wide uppercase truncate">
               ${formattedDate}
             </h3>
-            <span class="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400">
-              ${dayItems.length} Transaksi
+            <span class="px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400 shrink-0">
+              ${dayItems.length}
             </span>
           </div>
           
-          <div class="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
-            ${dayIncome > 0 ? `<span class="text-emerald-500">Masuk ${formatRupiah(dayIncome)}</span>` : ''}
-            ${dayExpense > 0 ? `<span class="text-rose-500">Keluar ${formatRupiah(dayExpense)}</span>` : ''}
+          <!-- Sisi Kanan: Net / Compact Ringkasan Harian -->
+          <div class="text-[11px] font-bold shrink-0 flex items-center gap-2">
+            ${dayIncome > 0 ? `
+              <span class="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                <span class="text-[9px]">↑</span>${formatRupiah(dayIncome)}
+              </span>
+            ` : ''}
+            ${dayExpense > 0 ? `
+              <span class="text-rose-600 dark:text-rose-400 flex items-center gap-0.5">
+                <span class="text-[9px]">↓</span>${formatRupiah(dayExpense)}
+              </span>
+            ` : ''}
           </div>
+
         </div>
 
+        <!-- Stack Kartu Transaksi -->
         <div class="space-y-2.5">
           ${cardsHtml}
         </div>
       </div>
     `;
+    
   }).join('');
 }
 
