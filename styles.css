@@ -431,6 +431,6 @@ body {
     align-items: center;
     justify-content: flex-end;
     gap: 0.75rem;
-    shrink: 0;
+    flex-shrink: 0;
   }
 }
